@@ -1,0 +1,15 @@
+{application, neo4j_ex, [
+    {description, "A pure Erlang driver for Neo4j graph database using the Bolt protocol"},
+    {vsn, "0.1.9"},
+    {registered, [neo4j_sup]},
+    {mod, {neo4j_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        poolboy
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["MIT"]},
+    {links, [{"GitHub", "https://github.com/Maxino22/neo4j_ex"}]}
+]}.
