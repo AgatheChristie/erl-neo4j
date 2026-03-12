@@ -1,0 +1,113 @@
+1> neo4j_ex:run(<<"MATCH (p:Person) RETURN p.name, p.age">>).
+{ok,#{records =>
+          [{neo4j_record,[<<229,188,160,228,184,137>>,30],
+                         [<<"p.name">>,<<"p.age">>]},
+           {neo4j_record,[<<230,157,142,229,155,155>>,25],
+                         [<<"p.name">>,<<"p.age">>]},
+           {neo4j_record,[<<231,142,139,228,186,148>>,35],
+                         [<<"p.name">>,<<"p.age">>]}],
+      summary =>
+          {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                         undefined,undefined,0,undefined,<<"neo4j">>}}}
+2>
+2>
+2> neo4j_ex:run(<<"MATCH (p:Person {name: $name}) RETURN p">>, #{<<"name">> => <<"张三">>}).
+{ok,#{records => [],
+      summary =>
+          {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                         undefined,undefined,0,undefined,<<"neo4j">>}}}
+3>
+3> neo4j_ex:run(<<"MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN a.name, r.since, b.name">>).
+{ok,#{records =>
+          [{neo4j_record,[<<229,188,160,228,184,137>>,
+                          2020,
+                          <<230,157,142,229,155,155>>],
+                         [<<"a.name">>,<<"r.since">>,<<"b.name">>]},
+           {neo4j_record,[<<230,157,142,229,155,155>>,
+                          2022,
+                          <<231,142,139,228,186,148>>],
+                         [<<"a.name">>,<<"r.since">>,<<"b.name">>]}],
+      summary =>
+          {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                         undefined,undefined,2,undefined,<<"neo4j">>}}}
+4> neo4j_ex:run(<<"MATCH (p:Person)-[w:WORKS_AT]->(c:Company) RETURN p.name, w.role, c.name">>).
+{ok,#{records =>
+          [{neo4j_record,[<<229,188,160,228,184,137>>,
+                          <<229,183,165,231,168,139,229,184,136>>,
+                          <<231,167,145,230,138,128,229,133,172,229,143,184>>],
+                         [<<"p.name">>,<<"w.role">>,<<"c.name">>]},
+           {neo4j_record,[<<230,157,142,229,155,155>>,
+                          <<232,174,190,232,174,161,229,184,136>>,
+                          <<231,167,145,230,138,128,229,133,172,229,143,184>>],
+                         [<<"p.name">>,<<"w.role">>,<<"c.name">>]},
+           {neo4j_record,[<<231,142,139,228,186,148>>,
+                          <<228,186,167,229,147,129,231,187,143,231,144,134>>,
+                          <<231,167,145,230,138,128,229,133,172,229,143,184>>],
+                         [<<"p.name">>,<<"w.role">>,<<"c.name">>]}],
+      summary =>
+          {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                         undefined,undefined,1,undefined,<<"neo4j">>}}}
+5>
+5> neo4j_ex:run(<<"MATCH (a:Person {name: '张三'})-[:KNOWS*1..2]-(friend) RETURN DISTINCT friend.name">>).
+{ok,#{records => [],
+      summary =>
+          {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                         undefined,undefined,3,undefined,<<"neo4j">>}}}
+6> neo4j_ex:session(fun(Session) ->
+6>     R1 = neo4j_session:run(Session, <<"MATCH (p:Person) RETURN count(p) AS cnt">>, #{}, []),
+6>     io:format("人数统计: ~p~n", [R1]),
+6>     R2 = neo4j_session:run(Session, <<"MATCH (p:Person) WHERE p.age > $age RETURN p.name">>, #{<<"age">> => 28}, []),
+6>     io:format("年龄大于28: ~p~n", [R2]),
+6>     ok
+6> end).
+人数统计: {ok,#{records => [{neo4j_record,[3],[<<"cnt">>]}],
+            summary =>
+                {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                               undefined,undefined,0,undefined,<<"neo4j">>}}}
+年龄大于28: {ok,#{records =>
+                  [{neo4j_record,[<<229,188,160,228,184,137>>],[<<"p.name">>]},
+                   {neo4j_record,[<<231,142,139,228,186,148>>],
+                                 [<<"p.name">>]}],
+              summary =>
+                  {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                                 undefined,undefined,1,undefined,
+                                 <<"neo4j">>}}}
+ok
+7> neo4j_ex:transaction(fun(Tx) ->
+7>     neo4j_transaction:run(Tx, <<"CREATE (t:Test {name: '事务测试', ts: $ts})">>, #{<<"ts">> => 12345}),
+7>     R = neo4j_transaction:run(Tx, <<"MATCH (t:Test) RETURN t.name, t.ts">>),
+7>     io:format("事务内查询: ~p~n", [R]),
+7>     R
+7> end).
+事务内查询: {ok,#{records => [{neo4j_record,[<<"ï¿½ï¿½Kï¿½">>,12345],undefined}],
+             summary =>
+                 {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                                undefined,undefined,68,undefined,
+                                <<"neo4j">>}}}
+{ok,{ok,#{records =>
+              [{neo4j_record,[<<239,191,189,239,191,189,75,239,191,189>>,
+                              12345],
+                             undefined}],
+          summary =>
+              {neo4j_summary,<<"r">>,undefined,undefined,undefined,
+                             undefined,undefined,68,undefined,<<"neo4j">>}}}}
+8>
+8>
+8> case neo4j_ex:run(<<"MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age">>) of
+8>     {ok, #{records := Records, summary := Summary}} ->
+8>         lists:foreach(fun(Rec) ->
+8>             Name = neo4j_record:get(Rec, 0),
+8>             Age = neo4j_record:get(Rec, 1),
+8>             io:format("姓名: ~ts, 年龄: ~p~n", [Name, Age])
+8>         end, Records),
+8>         io:format("查询摘要: ~p~n", [Summary]);
+8>     {error, Reason} ->
+8>         io:format("查询失败: ~p~n", [Reason])
+8> end.
+姓名: 李四, 年龄: 25
+姓名: 张三, 年龄: 30
+姓名: 王五, 年龄: 35
+查询摘要: {neo4j_summary,<<"r">>,undefined,undefined,undefined,undefined,
+                     undefined,0,undefined,<<"neo4j">>}
+ok
+9>
